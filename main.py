@@ -1,5 +1,3 @@
-"""CLI entry point: train models on one ticker, optionally walk-forward.
-The GUI lives in gui_qt.py."""
 
 import argparse
 
