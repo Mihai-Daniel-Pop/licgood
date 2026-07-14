@@ -1,13 +1,3 @@
-"""
-All five algorithms plus the ensemble, behind one interface:
-
-    train(X, y)              X = feature DataFrame, y = target Series
-    predict(features)        features = feature DataFrame (uses the tail)
-    walk_forward_score(X, y, n_splits)
-
-Classifiers predict (label, [p_down, p_up]); regressors predict a log return.
-Each trained model persists as a single file under models/.
-"""
 
 import json
 import os
