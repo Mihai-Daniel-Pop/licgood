@@ -1,5 +1,3 @@
-"""PyQt6 desktop GUI. Sidebar configures the run; tabs show the results.
-All heavy work happens in AnalysisWorker on a QThread so the UI never blocks."""
 
 import os
 import string
