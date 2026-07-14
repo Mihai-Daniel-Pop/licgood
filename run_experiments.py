@@ -1,17 +1,4 @@
-"""
-Batch experiment runner — generates the data for thesis Chapter 7.
 
-For every ticker it runs the same expanding-window walk-forward CV as the
-GUI for all five algorithms, in both modes, then exports:
-
-    results/walk_forward_scores.csv   every (ticker, mode, model, fold) score
-    results/summary.csv               mean +/- std per ticker x mode x model
-    results/summary_tables.tex        LaTeX tables for the thesis
-    results/wf_<TICKER>_<mode>.png    grouped per-fold bar chart
-
-Data is cached in data/ on first download, so re-runs are offline and
-reproducible.
-"""
 
 import argparse
 import os
