@@ -17,7 +17,7 @@ from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDateEdit, QFileDialog, QFrame,
     QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QProgressBar, QPushButton, QStatusBar, QTabWidget,
+    QMessageBox, QProgressBar, QPushButton, QScrollArea, QStatusBar, QTabWidget,
     QTextBrowser, QTextEdit, QVBoxLayout, QWidget,
 )
 
@@ -760,8 +760,12 @@ class MainWindow(QMainWindow):
     def _build_importance_tab(self):
         w = QWidget()
         layout = QVBoxLayout(w)
+        self.fi_scroll = QScrollArea()
+        self.fi_scroll.setWidgetResizable(True)
+        self.fi_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.fi_widget = MplWidget()
-        layout.addWidget(self.fi_widget)
+        self.fi_scroll.setWidget(self.fi_widget)
+        layout.addWidget(self.fi_scroll)
         return w
 
     def _build_wiki_tab(self):
@@ -977,20 +981,39 @@ class MainWindow(QMainWindow):
         with_imp = {n: m["importance"] for n, m in models.items()
                     if m.get("importance") is not None}
         if not with_imp:
+            self.fi_widget.canvas.setMinimumHeight(0)
             ax = fig.add_subplot(111)
             ax.text(0.5, 0.5, "No feature importances available.\n"
-                    "Train Random Forest or XGBoost first.",
+                    "Train the models first (use Force retrain for models\n"
+                    "saved before this feature existed).",
                     ha="center", va="center", color=self.colors["muted"])
             ax.set_axis_off()
         else:
+            # One panel per model, stacked vertically inside the scroll area.
+            n = len(with_imp)
+            self.fi_widget.canvas.setMinimumHeight(300 * n)
+            fig.set_size_inches(fig.get_size_inches()[0], 3.0 * n)
             for idx, (name, imp) in enumerate(with_imp.items(), start=1):
-                ax = fig.add_subplot(1, len(with_imp), idx)
+                ax = fig.add_subplot(n, 1, idx)
+                method = ("impurity" if name in ("Random Forest", "XGBoost")
+                          else "permutation")
+                ax.set_title(f"{name} — top 12 features ({method} importance)")
+                if np.allclose(imp, 0):
+                    # e.g. a NEAT genome whose enabled connections all died:
+                    # the prediction is a constant, so no feature matters.
+                    ax.text(0.5, 0.5, "All importances are zero — this model's "
+                            "prediction does not depend on\nthe input features "
+                            "(constant predictor). Retrain to evolve a new one.",
+                            ha="center", va="center", fontsize=9,
+                            color=self.colors["muted"])
+                    ax.set_axis_off()
+                    continue
                 top = np.argsort(imp)[::-1][:12]
                 ax.barh([feature_names[i] for i in top][::-1],
                         [imp[i] for i in top][::-1],
-                        color=self.colors["accent"],
+                        color=MODEL_COLORS.get(name, self.colors["accent"]),
                         edgecolor=self.colors["surface"])
-                ax.set_title(f"{name} — top 12")
+                ax.tick_params(labelsize=8)
             fig.tight_layout()
         self.fi_widget.canvas.draw()
 

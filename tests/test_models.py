@@ -73,15 +73,22 @@ def test_regressor_walk_forward(name, regression_data, tmp_path):
     assert all(0.0 <= s <= 1.0 for s in scores)
 
 
-def test_tree_feature_importance(feature_data, tmp_path):
+def test_feature_importance_all_models(feature_data, tmp_path):
     _, _, X, y = feature_data
-    for name in ("Random Forest", "XGBoost"):
-        model = redirect(CLASSIFIERS[name](), tmp_path)
-        model.train(X, y, verbose=False)
+    for name in CLASSIFIERS:
+        model = redirect(CLASSIFIERS[name](), tmp_path, name)
+        model.train(X, y, verbose=False, **FAST.get(name, {}))
         imp = model.feature_importance()
-        assert imp is not None and len(imp) == X.shape[1]
-    lstm = redirect(CLASSIFIERS["LSTM"](), tmp_path)
-    assert lstm.feature_importance() is None
+        assert imp is not None and len(imp) == X.shape[1], name
+        # importance must survive the save/reload round-trip
+        fresh = redirect(CLASSIFIERS[name](), tmp_path, name)
+        imp2 = fresh.feature_importance()
+        assert imp2 is not None and np.allclose(imp2, imp), name
+
+
+def test_untrained_model_has_no_importance(tmp_path):
+    model = redirect(CLASSIFIERS["LSTM"](), tmp_path, "never_trained")
+    assert model.feature_importance() is None
 
 
 def test_predict_returns_none_without_saved_model(feats, tmp_path):

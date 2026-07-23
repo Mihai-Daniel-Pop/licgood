@@ -35,6 +35,7 @@ class BaseModel:
         self.task = task
         self.model = None
         self.scaler = StandardScaler()
+        self.importance = None
         self.feature_columns = list(DataPreprocessor.BASE_FEATURES)
         self.path = os.path.join(MODELS_DIR, f"{self.algo}_{task}.pkl")
 
@@ -44,7 +45,8 @@ class BaseModel:
 
     def _save(self, extra=None):
         bundle = {"model": self.model, "scaler": self.scaler,
-                  "features": self.feature_columns}
+                  "features": self.feature_columns,
+                  "importance": self.importance}
         bundle.update(extra or {})
         joblib.dump(bundle, self.path)
 
@@ -57,6 +59,7 @@ class BaseModel:
         self.model = bundle["model"]
         self.scaler = bundle["scaler"]
         self.feature_columns = bundle["features"]
+        self.importance = bundle.get("importance")
         self._loaded(bundle)
         return True
 
@@ -64,7 +67,9 @@ class BaseModel:
         pass
 
     def feature_importance(self):
-        return None
+        if not self._load():
+            return None
+        return self.importance
 
 
 
@@ -319,6 +324,28 @@ class SeqModel(BaseModel):
             out = net(torch.FloatTensor(X_seq).to(DEVICE)).cpu().numpy().ravel()
         return out
 
+    def _score(self, X_seq, y_seq):
+        out = self._eval(self.model, X_seq)
+        if self.task == "classifier":
+            probs = 1 / (1 + np.exp(-out))
+            return float(((probs >= 0.5).astype(int) == y_seq.astype(int)).mean())
+        return dir_acc(y_seq, out)
+
+    def _perm_importance(self, X_scaled, y, n_repeats=3):
+        rng = np.random.default_rng(42)
+        Xs, ys = self._sequences(X_scaled, y)
+        base = self._score(Xs, ys)
+        imp = np.zeros(X_scaled.shape[1])
+        for j in range(X_scaled.shape[1]):
+            drops = []
+            for _ in range(n_repeats):
+                Xp = X_scaled.copy()
+                rng.shuffle(Xp[:, j])
+                Xp_seq, yp = self._sequences(Xp, y)
+                drops.append(base - self._score(Xp_seq, yp))
+            imp[j] = np.mean(drops)
+        return imp
+
     def train(self, X, y, epochs=None, verbose=True):
         X_arr, _ = self._matrix(X)
         y_arr = np.asarray(y, dtype=float)
@@ -341,13 +368,15 @@ class SeqModel(BaseModel):
                        "directional_accuracy": dir_acc(yte, out)}
         if verbose:
             print(f"{self.algo} {self.task}: {metrics}")
+        self.importance = self._perm_importance(X_test, y_arr[split:])
         self._save()
         metrics.update(n_train=len(Xtr), n_test=len(Xte))
         return metrics
 
     def _save(self, extra=None):
         joblib.dump({"model": self.model.state_dict(), "scaler": self.scaler,
-                     "features": self.feature_columns}, self.path)
+                     "features": self.feature_columns,
+                     "importance": self.importance}, self.path)
 
     def _loaded(self, bundle):
         state = self.model
@@ -515,6 +544,26 @@ class NEATModel(BaseModel):
         net = neat.nn.FeedForwardNetwork.create(genome, config)
         return np.array([net.activate(r)[0] for r in rows])
 
+    def _perm_importance(self, X_scaled, y, n_repeats=3):
+        rng = np.random.default_rng(42)
+
+        def score(rows):
+            out = self._outputs(self.model, self.config, rows)
+            if self.task == "classifier":
+                return float(((out >= 0.5).astype(int) == y.astype(int)).mean())
+            return dir_acc(y, out * self.scale)
+
+        base = score(X_scaled)
+        imp = np.zeros(X_scaled.shape[1])
+        for j in range(X_scaled.shape[1]):
+            drops = []
+            for _ in range(n_repeats):
+                Xp = X_scaled.copy()
+                rng.shuffle(Xp[:, j])
+                drops.append(base - score(Xp))
+            imp[j] = np.mean(drops)
+        return imp
+
     def train(self, X, y, pop_size=90, generations=25, verbose=True):
         X_arr, _ = self._matrix(X)
         y_arr = np.asarray(y, dtype=float)
@@ -540,6 +589,7 @@ class NEATModel(BaseModel):
         if verbose:
             print(f"neat {self.task}: {metrics}  "
                   f"({len(self.model.connections)} connections)")
+        self.importance = self._perm_importance(X_test, y_test)
         self._save({"config": self.config, "scale": self.scale})
         metrics.update(n_train=len(X_train), n_test=len(X_test))
         return metrics
