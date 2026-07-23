@@ -1,8 +1,4 @@
-"""Feature engineering, target construction and walk-forward splits.
 
-These tests back up the thesis claims directly: NFR4 (no look-ahead
-leakage) and the 22/30-feature design from Chapter 4.
-"""
 
 import numpy as np
 import pandas as pd
@@ -38,7 +34,6 @@ class TestFeatureEngineering:
         assert feature_df["Stoch_D"].between(0, 100).all()
 
     def test_bb_position_mostly_inside_bands(self, feature_data):
-        # By construction ~95% of closes sit inside 2-sigma bands
         _, feature_df, _, _ = feature_data
         inside = feature_df["BB_Position"].between(-0.5, 1.5).mean()
         assert inside > 0.9
@@ -67,8 +62,7 @@ class TestTargets:
 
     def test_classification_drops_unlabelable_last_row(self, feature_data):
         _, feature_df, X, _ = feature_data
-        # The very last feature row has no next-day close, so it must not
-        # appear in the training set.
+
         assert feature_df.index[-1] not in X.index
 
     def test_regression_target_is_log_return(self, ohlcv, regression_data):
