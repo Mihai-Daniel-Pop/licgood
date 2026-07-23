@@ -1,4 +1,4 @@
-"""DataLoader caching behaviour (FR1) — no network access needed."""
+"""DataLoader caching behaviour (FR1) no network access needed."""
 
 import pandas as pd
 
@@ -11,7 +11,6 @@ def test_cached_csv_is_used_instead_of_download(tmp_path):
     loader = DataLoader("FAKE", "2022-01-01", "2022-12-31", data_dir=str(tmp_path))
     df.to_csv(loader.file_path)
 
-    # Poison download_data: if the loader tries the network, the test fails.
     loader.download_data = lambda: (_ for _ in ()).throw(
         AssertionError("tried to download despite cache"))
 
