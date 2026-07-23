@@ -239,13 +239,11 @@ class SeqModel(BaseModel):
     net_cls = None
     train_epochs = 80
     train_patience = 12
-    wf_patience = None  # None = plain fixed-epoch training in walk-forward
+    wf_patience = None  
     seq_len = 30
 
     def _sequences(self, X, y, indices=None):
-        """Windows of the last seq_len rows predicting y[i]. With `indices`,
-        targets are restricted to those rows (inputs may reach further back,
-        which is fine — that is past data)."""
+
         idx = indices if indices is not None else range(len(X))
         seqs, targets = [], []
         for i in idx:
@@ -264,8 +262,7 @@ class SeqModel(BaseModel):
         return nn.MSELoss()
 
     def _fit(self, Xtr, ytr, Xval, yval, epochs, patience):
-        """Seeded training loop. With patience: validation early stopping,
-        LR-on-plateau, best-weights restore. Without: fixed epochs."""
+
         torch.manual_seed(42)
         net = self.net_cls(Xtr.shape[2]).to(DEVICE)
         criterion = self._criterion(ytr)
@@ -477,9 +474,7 @@ NEAT_ROWS_TRAIN, NEAT_ROWS_WF = 800, 400
 
 
 class NEATModel(BaseModel):
-    """Evolves network weights AND topology (Stanley & Miikkulainen 2002).
-    Classifier: sigmoid output read as P(up). Regressor: tanh output scaled
-    so that +-3 std of the target maps onto tanh's +-1 range."""
+
 
     algo = "neat"
 
