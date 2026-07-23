@@ -1,4 +1,3 @@
-"""Shared fixtures: synthetic market data so every test runs offline."""
 
 import os
 import sys
@@ -14,7 +13,6 @@ from src.preprocessor import DataPreprocessor
 
 
 def make_ohlcv(n=420, seed=42, drift=0.0005):
-    """Deterministic synthetic OHLCV random walk."""
     rng = np.random.default_rng(seed)
     idx = pd.bdate_range("2022-01-03", periods=n)
     log_ret = rng.normal(drift, 0.02, n)
