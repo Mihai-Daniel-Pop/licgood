@@ -28,7 +28,6 @@ def dir_acc(y_true, y_pred):
 
 
 class BaseModel:
-    """Shared persistence + input plumbing."""
 
     algo = ""
 
@@ -68,7 +67,6 @@ class BaseModel:
         return None
 
 
-# ---------------------------------------------------------------- trees ----
 
 class SkModel(BaseModel):
     """Random Forest and XGBoost, classification and regression."""
@@ -200,7 +198,6 @@ class SkModel(BaseModel):
         return self.model.feature_importances_
 
 
-# ------------------------------------------------------- sequence nets ----
 
 class LSTMNet(nn.Module):
     def __init__(self, input_size, hidden=96, layers=2, dropout=0.3):
@@ -411,7 +408,6 @@ class JordanModel(SeqModel):
     train_epochs, train_patience, wf_patience = 60, 10, 8
 
 
-# ----------------------------------------------------------------- NEAT ----
 
 NEAT_CONFIG = """
 [NEAT]
@@ -476,8 +472,7 @@ elitism            = 2
 survival_threshold = 0.2
 """
 
-# Fitness evaluation is pure Python, so cap how many (most recent) training
-# rows each genome is scored on.
+
 NEAT_ROWS_TRAIN, NEAT_ROWS_WF = 800, 400
 
 
@@ -597,7 +592,6 @@ class NEATModel(BaseModel):
         return float(out * self.scale)
 
 
-# ------------------------------------------------------------- registry ----
 
 CLASSIFIERS = {
     "Random Forest": lambda: SkModel("rf", "classifier"),
