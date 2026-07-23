@@ -1,6 +1,4 @@
-"""One test file for all five algorithms x both tasks: the uniform
-train / predict / walk_forward_score contract, persistence round-trips,
-and model-specific guarantees."""
+
 
 import os
 
