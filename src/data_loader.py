@@ -10,7 +10,6 @@ class DataLoader:
         self.start_date = start_date
         self.end_date = end_date
         self.data_dir = data_dir
-        # Sanitize ticker for filesystem (^VIX → _VIX)
         safe_ticker = ticker.replace("^", "_").replace("/", "_")
         self.file_path = os.path.join(
             data_dir, f"{safe_ticker}_{start_date}_{end_date}.csv"
