@@ -20,7 +20,6 @@ class DataPreprocessor:
         "Stoch_K", "Stoch_D",
     ]
 
-    # Extra features when market context is provided
     MARKET_FEATURES = [
         "SPY_Return_1d", "SPY_Return_5d",
         "VIX_Level", "VIX_Change_1d", "VIX_MA20_Ratio",
@@ -34,14 +33,11 @@ class DataPreprocessor:
         self.market_data = None
         self.feature_columns = list(self.BASE_FEATURES)
 
-    # ---------- public API ----------
 
     def set_market_context(self, market_data):
-        """market_data: dict with keys 'spy' and 'vix' (DataFrames with Close)."""
         self.market_data = market_data
         return self
 
-    # ---------- indicator helpers ----------
 
     @staticmethod
     def _rsi(close, period=14):
@@ -74,7 +70,6 @@ class DataPreprocessor:
         d = k.rolling(window=d_period).mean()
         return k, d
 
-    # ---------- main pipeline ----------
 
     def add_technical_indicators(self):
         df = self.raw_data.copy()
@@ -125,7 +120,6 @@ class DataPreprocessor:
 
         df["Stoch_K"], df["Stoch_D"] = self._stochastic(high, low, close)
 
-        # ---- market context (optional) ----
         if self.market_data is not None:
             df = self._add_market_features(df, close)
             self.feature_columns = list(self.BASE_FEATURES) + list(self.MARKET_FEATURES)
@@ -144,7 +138,6 @@ class DataPreprocessor:
         spy.name = "_SPY_Close"
         vix.name = "_VIX_Close"
 
-        # Align on date index; ffill small gaps (e.g. half-day closures)
         merged = df.join(spy, how="left").join(vix, how="left")
         merged["_SPY_Close"] = merged["_SPY_Close"].ffill()
         merged["_VIX_Close"] = merged["_VIX_Close"].ffill()
@@ -162,32 +155,26 @@ class DataPreprocessor:
         ticker_ret = close.pct_change()
         merged["Excess_Return_1d"] = ticker_ret - merged["SPY_Return_1d"]
 
-        # Relative strength: 20-day cumulative ticker return vs SPY
         merged["RelStrength_20d"] = (
             (1 + ticker_ret).rolling(20).apply(np.prod, raw=True)
             / (1 + merged["SPY_Return_1d"]).rolling(20).apply(np.prod, raw=True)
         )
 
-        # Rolling 60-day beta of ticker vs SPY
         window = 60
         cov = ticker_ret.rolling(window).cov(merged["SPY_Return_1d"])
         var = merged["SPY_Return_1d"].rolling(window).var()
         merged["Beta_60d"] = cov / var.replace(0, np.nan)
 
-        # Drop helper cols
         return merged.drop(columns=["_SPY_Close", "_VIX_Close"])
 
-    # ---------- targets ----------
 
     def prepare_data_for_training(self):
-        """Classification target: next-day direction."""
         if self.feature_df is None:
             self.add_technical_indicators()
 
         df = self.feature_df.copy()
         df["Target"] = (df["Close"].shift(-1) > df["Close"]).astype(int)
-        # NaN > x is False, not NaN, so the last row would otherwise keep a
-        # fabricated "down" label even though its next-day close is unknown.
+
         df = df.iloc[:-1]
         df.dropna(inplace=True)
 
@@ -196,7 +183,6 @@ class DataPreprocessor:
         return X, y
 
     def prepare_data_for_regression(self):
-        """Regression target: next-day log return."""
         if self.feature_df is None:
             self.add_technical_indicators()
 
@@ -209,7 +195,6 @@ class DataPreprocessor:
         y = df["TargetReturn"].copy()
         return X, y
 
-    # ---------- CV ----------
 
     @staticmethod
     def walk_forward_splits(n_samples, n_splits=5, min_train_frac=0.5):
